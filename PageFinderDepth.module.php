@@ -68,17 +68,21 @@ class PageFinderDepth extends WireData implements Module, ConfigurableModule {
 
 				// Selector field is depth
 				elseif($selector['field'] === $this->keyword) {
-					// Selector value must not be an array
-					if(is_array($selector['value'])) continue;
 					$this->modify = true;
-					$value = (int) $selector['value'];
-					// A depth value of zero is not supported and will be treated the same as a value of 1
-					// Deduct 1 from value so that a depth of 1 means one level below home
-					if($value > 0) --$value;
-					$operator = $selector::getOperator();
 					$this->clauses['select'] = "LENGTH(pages_paths.path) - LENGTH(REPLACE(pages_paths.path, '/', '')) AS depth";
 					$this->clauses['join'] = "pages_paths ON pages_paths.pages_id = pages.id";
-					$this->clauses['groupbys'][] = "HAVING depth $operator $value";
+					$operator = $selector::getOperator();
+					// Cast to array to standardise with OR value selectors (pipe)
+					$values = (array) $selector['value'];
+					$groupbys = [];
+					foreach($values as $value) {
+						$value = (int) $value;
+						// A depth value of zero is not supported and will be treated the same as a value of 1
+						// Deduct 1 from value so that a depth of 1 means one level below home
+						if($value > 0) --$value;
+						$groupbys[] = "depth $operator $value";
+					}
+					$this->clauses['groupbys'][] = 'HAVING ' . implode(' OR ', $groupbys);
 					$selectors->remove($selector);
 				}
 
